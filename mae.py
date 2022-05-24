@@ -2,6 +2,7 @@ import sys
 import torch
 import numpy as np
 from PIL import Image
+from collections import OrderedDict
 
 from mae_config import *
 sys.path.append(MAE_DIR)
@@ -14,6 +15,18 @@ mask_len   = 196
 mask_bytes = 25
 default_mask_ratio = 0.75
 default_checkpoint_name = 'mae_visualize_vit_large_ganloss.pth'
+load_state_dict_message_success = "<All keys matched successfully>"
+load_state_dict_message_no_missing_keys = "_IncompatibleKeys(missing_keys=[]"
+
+def mae_fix_state_dict(state_dict):
+    if list(state_dict.keys())[0].startswith('mae.'):
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            name = key.replace("mae.", "") # remove `mae.`
+            new_state_dict[name] = val
+        return new_state_dict
+    else:
+        return state_dict
 
 def mae_prepare_model(path_to_checkpoint, arch='mae_vit_large_patch16'):
     # build model
@@ -21,8 +34,17 @@ def mae_prepare_model(path_to_checkpoint, arch='mae_vit_large_patch16'):
 
     # load model
     checkpoint = torch.load(path_to_checkpoint, map_location='cpu')
-    msg = model.load_state_dict(checkpoint['model'], strict=False)
-    print(msg)
+    state_dict = checkpoint['model']
+    state_dict = mae_fix_state_dict(state_dict)
+    msg = model.load_state_dict(state_dict, strict=False)
+    msg = str(msg)
+    if msg == load_state_dict_message_success:
+        print("okay.")
+    else:
+        if msg.startswith(load_state_dict_message_no_missing_keys):
+            print("okay, some keys unexpected.")
+        else:
+            raise Exception(msg)
     return model
 
 def mae_set_mask(model, mask, mask_ratio):
@@ -108,7 +130,13 @@ def parse_mask(mask_base64: str):
     mask = torch.tensor(mask)
     return mask_ratio, mask
 
-def mae_main(img_path: str, out_dir: str, mask_base64: str | None, checkpoint_name: str):
+def mae_main(
+    img_path        : str,
+    out_dir         : str,
+    mask_base64     : str | None,
+    checkpoint_name : str | None):
+    checkpoint_name = checkpoint_name or default_checkpoint_name
+
     print('loading model ... ', end='')
     model = mae_prepare_model(
         f'{MAE_CHECKPOINT_DIR}/{checkpoint_name}',
@@ -147,8 +175,19 @@ def mae_main(img_path: str, out_dir: str, mask_base64: str | None, checkpoint_na
     print('output image saved.')
 
 if __name__ == '__main__':
-    mae_main(
-        img_path        = sys.argv[1],
-        out_dir         = sys.argv[2] if len(sys.argv) >= 3 else '.',
-        mask_base64     = sys.argv[3] if len(sys.argv) >= 4 else None,
-        checkpoint_name = sys.argv[4] if len(sys.argv) >= 5 else default_checkpoint_name)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i',
+        dest = 'img_path'         , type = str, required = True,
+        help = 'input image path')
+    parser.add_argument('-o',
+        dest = 'out_dir'          , type = str, required = True,
+        help = 'output directory')
+    parser.add_argument('-m',
+        dest = 'mask_base64'      , type = str, default = None,
+        help = 'input mask (base64)')
+    parser.add_argument('-c',
+        dest = 'checkpoint_name'  , type = str, default = None,
+        help = 'checkpoint name')
+    args = parser.parse_args()
+    mae_main(args.img_path, args.out_dir, args.mask_base64, args.checkpoint_name)
