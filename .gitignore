@@ -1,3 +1,6 @@
+**/node_modules/
 **/__pycache__/
+
+public/index.bundle.js
 
 mae_config.py
