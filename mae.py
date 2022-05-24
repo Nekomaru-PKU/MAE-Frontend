@@ -10,13 +10,42 @@ import models_mae
 imagenet_mean = np.array([0.485, 0.456, 0.406])
 imagenet_std  = np.array([0.229, 0.224, 0.225])
 
+mask_len   = 196
+mask_bytes = 25
+default_mask_ratio = 0.75
+default_checkpoint_name = 'mae_visualize_vit_large_ganloss.pth'
+
 def mae_prepare_model(path_to_checkpoint, arch='mae_vit_large_patch16'):
     # build model
     model = getattr(models_mae, arch)()
+
     # load model
     checkpoint = torch.load(path_to_checkpoint, map_location='cpu')
     msg = model.load_state_dict(checkpoint['model'], strict=False)
     print(msg)
+    return model
+
+def mae_set_mask(model, mask, mask_ratio):
+    def random_masking(x, _):
+        N, L, D = x.shape # batch, length, dim
+        len_keep = int(L * (1 - mask_ratio))
+
+        # sort noise for each sample
+        ids_shuffle = torch.argsort(mask, dim=1)  # ascend: small is keep, large is remove
+        ids_restore = torch.argsort(ids_shuffle, dim=1)
+
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
+
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask_res = torch.ones([N, L], device=x.device)
+        mask_res[:, :len_keep] = 0
+        # unshuffle to get the binary mask
+        mask_res = torch.gather(mask_res, dim=1, index=ids_restore)
+
+        return x_masked, mask_res, ids_restore
+    model.random_masking = random_masking
     return model
 
 def mae_core(img: torch.Tensor, model):
@@ -65,14 +94,23 @@ def image_postproc(img: torch.Tensor) -> Image:
     img = Image.fromarray(img.astype('uint8'))
     return img
 
-default_checkpoint_name = 'mae_visualize_vit_large_ganloss.pth'
+def parse_mask(mask_base64: str):
+    import base64
+    buf = base64.b64decode(mask_base64)
+    buf = np.frombuffer(buf, dtype=np.uint8)
+    assert len(buf) == mask_bytes
+    buf = np.unpackbits(buf)[:mask_len]
 
-def mae_main(
-    img_path       : str,
-    out_dir        : str = '.',
-    checkpoint_name: str = default_checkpoint_name):
-    print('loading model...', end='')
-    model_mae = mae_prepare_model(
+    mask_ratio = np.count_nonzero(buf) / mask_len
+
+    mask = np.ndarray(shape=(1, mask_len))
+    mask[0, :] = buf
+    mask = torch.tensor(mask)
+    return mask_ratio, mask
+
+def mae_main(img_path: str, out_dir: str, mask_base64: str | None, checkpoint_name: str):
+    print('loading model ... ', end='')
+    model = mae_prepare_model(
         f'{MAE_CHECKPOINT_DIR}/{checkpoint_name}',
         f'mae_vit_large_patch16')
     print('model loaded.')
@@ -81,21 +119,36 @@ def mae_main(
     img = image_preproc(img)
     print('input image loaded.')
 
-    torch.manual_seed(2)
-    out = mae_core(img, model_mae)
+    if mask_base64 is not None:
+        mask_ratio, mask = parse_mask(mask_base64)
+        model = mae_set_mask(model, mask, mask_ratio)
+        print(f'input mask loaded, mask_ratio: {mask_ratio}')
+    else:
+        mask_ratio = default_mask_ratio
+        mask = torch.rand(1, mask_len, device=img.device)
+        model = mae_set_mask(model, mask, mask_ratio)
+        print(f'random mask generated, mask_ratio: {mask_ratio}')
+
+    out = mae_core(img, model)
     print('reconstruction completed.')
 
-    img = out['recon_visible']
+    img = out['masked']
     img = image_postproc(img)
-    img.save(f'{out_dir}/recon_visible.png')
+    img.save(f'{out_dir}/masked.png')
 
     img = out['recon']
     img = image_postproc(img)
     img.save(f'{out_dir}/recon.png')
 
+    img = out['recon_visible']
+    img = image_postproc(img)
+    img.save(f'{out_dir}/recon_visible.png')
+
     print('output image saved.')
 
 if __name__ == '__main__':
     mae_main(
-        sys.argv[1],
-        sys.argv[2] if len(sys.argv) >= 3 else '.')
+        img_path        = sys.argv[1],
+        out_dir         = sys.argv[2] if len(sys.argv) >= 3 else '.',
+        mask_base64     = sys.argv[3] if len(sys.argv) >= 4 else None,
+        checkpoint_name = sys.argv[4] if len(sys.argv) >= 5 else default_checkpoint_name)
