@@ -3,7 +3,8 @@
     "compilerOptions": {
         "target": "ES5",
         "lib": ["ES2021", "DOM"],
-        "jsx": "react",
+        "jsx": "react-jsx",
+        "jsxImportSource": "@emotion/react",
         "module": "commonjs",
         "noEmit": true,
         "sourceMap": true,

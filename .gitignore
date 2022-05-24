@@ -2,5 +2,7 @@
 **/__pycache__/
 
 public/index.bundle.js
+public/upload/
+public/result/
 
 mae_config.py
