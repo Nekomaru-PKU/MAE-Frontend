@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { css } from '@emotion/react';
-import { LinearProgress } from "@mui/material";
+import { Grow, LinearProgress } from "@mui/material";
 
 export function ResultViewer(props: {
     uploadId: string;
@@ -23,36 +23,20 @@ export function ResultViewer(props: {
         <table>
             <tbody>
                 <tr id='0'>
-                    <td id='0, 0'><div css={css({
-                        width: 300,
-                        height: 300,
-                        padding: 16,
-                        background: `url(/upload/${props.uploadId})`,
-                        backgroundSize: 'cover',
-                    })}><ResultSubplotLabel text="Original"/></div></td>
-                    <td id='0, 1'><div css={css({
-                        width: 300,
-                        height: 300,
-                        padding: 16,
-                        background: `url(/result/${props.uploadId}/masked.png)`,
-                        backgroundSize: 'cover',
-                    })}><ResultSubplotLabel text="Masked"/></div></td>
+                    <td id='0, 0'><ResultSubplot ready={ready} sequence={0}
+                        label="Original"
+                        imageUrl={`/upload/${props.uploadId}`}/></td>
+                    <td id='0, 1'><ResultSubplot ready={ready} sequence={1}
+                        label="Masked"
+                        imageUrl={`/result/${props.uploadId}/masked.png`}/></td>
                 </tr>
                 <tr id='1'>
-                    <td id='1, 0'><div css={css({
-                        width: 300,
-                        height: 300,
-                        padding: 16,
-                        background: `url(/result/${props.uploadId}/recon.png)`,
-                        backgroundSize: 'cover',
-                    })}><ResultSubplotLabel text="Reconstructed"/></div></td>
-                    <td id='1, 1'><div css={css({
-                        width: 300,
-                        height: 300,
-                        padding: 16,
-                        background: `url(/result/${props.uploadId}/recon_visible.png)`,
-                        backgroundSize: 'cover',
-                    })}><ResultSubplotLabel text="Reconstructed + Visible"/></div></td>
+                    <td id='1, 0'><ResultSubplot ready={ready} sequence={2}
+                        label="Reconstructed"
+                        imageUrl={`/result/${props.uploadId}/recon.png`}/></td>
+                    <td id='1, 1'><ResultSubplot ready={ready} sequence={3}
+                        label="Reconstructed + Visible"
+                        imageUrl={`/result/${props.uploadId}/recon_visible.png`}/></td>
                 </tr>
             </tbody>
         </table>
@@ -63,13 +47,26 @@ export function ResultViewer(props: {
     </>
 }
 
-function ResultSubplotLabel(props: {
-    text: string,
+function ResultSubplot(props: {
+    ready: boolean;
+    label: string;
+    imageUrl: string;
+    sequence: number;
 }) {
-    return <div css={css({
-        width: 'fit-content',
-        background: 'white',
-        paddingLeft: 8,
-        paddingRight: 8,
-    })}>{props.text}</div>
+    return <Grow in={props.ready} timeout={1000 * props.sequence}>
+        <div css={css({
+            width: 300,
+            height: 300,
+            padding: 16,
+            background: `url(${props.imageUrl})`,
+            backgroundSize: 'cover',
+        })}>
+            <div css={css({
+                width: 'fit-content',
+                background: 'white',
+                paddingLeft: 8,
+                paddingRight: 8,
+            })}>{props.label}</div>
+        </div>
+    </Grow> 
 }

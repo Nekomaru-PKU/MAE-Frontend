@@ -1,21 +1,45 @@
 import { useState } from 'react';
 import { css } from '@emotion/react'
-import { Button, Step, StepContent, StepLabel, Stepper, useTheme } from "@mui/material";
+import { Button, Collapse, Step, StepContent, StepLabel, Stepper, useTheme } from "@mui/material";
 import { ImageUpload } from './components/ImageUpload';
 import { MaskEditor } from './components/MaskEditor';
 import { ResultViewer } from './components/ResultViewer';
+import { ModelSwitch } from './components/ModelSwitch';
+import styled from '@emotion/styled';
+
+const MyButton = styled(Button)({
+    height: 28,
+    marginLeft: 8,
+    borderRadius: 14,
+});
+
+function MyButtonContainer(props: {
+    children: React.ReactNode;
+}) {
+    return <div css={css({
+        float: 'right',
+        marginTop: 8,
+    })}>{props.children}</div>;
+}
 
 export function AppContent() {
     const theme = useTheme();
     const [step, setStep] = useState(0);
+    const [modelId, setModelId] = useState(0);
     const [uploadId, setUploadId] = useState('');
     const [maskBase64, setMaskBase64] = useState("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==");
     return <div css={css({
-        width: "640px"
+        width: "640px",
+        marginTop: 64,
+        marginBottom: 64,
     })}>
-        <h1 css={css({
-            color: theme.palette.primary.main,
-        })}>MAE Inpainting</h1>
+        <div>
+            <h1 css={css({
+                color: theme.palette.primary.main,
+                display: 'inline',
+            })}>MAE Inpainting</h1>
+            <ModelSwitch modelId={modelId} onChange={setModelId} />
+        </div>
         <Stepper activeStep={step} orientation="vertical">
             <Step>
                 <StepLabel>Upload Image</StepLabel>
@@ -41,31 +65,32 @@ export function AppContent() {
                         uploadId={uploadId}
                         maskBase64={maskBase64}
                         onChange={newMaskBase64 => setMaskBase64(newMaskBase64)} />
-                    <Button variant="contained" css={css({
-                        float: 'right',
-                        height: 28,
-                        marginTop: 8,
-                        borderRadius: 14,
-                    })} onClick={() => {
-                        fetch("/api/run", {
-                            method: "POST",
-                            headers: {
-                              'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                id: uploadId,
-                                modelId: "0",
-                                maskBase64: maskBase64,
-                            })
-                        });
-                        setStep(2);
-                    }}>Next</Button>
+                    <MyButtonContainer>
+                        <MyButton variant='outlined'  onClick={() => setStep(0)}>Back</MyButton>
+                        <MyButton variant='contained' onClick={() => {
+                            fetch("/api/run", {
+                                method: "POST",
+                                headers: {
+                                'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    id: uploadId,
+                                    modelId: modelId.toString(),
+                                    maskBase64: maskBase64,
+                                })
+                            });
+                            setStep(2);
+                        }}>Next</MyButton>
+                    </MyButtonContainer>
                 </> : (<></>) }</StepContent>
             </Step>
             <Step>
                 <StepLabel>Reconstruct</StepLabel>
                 <StepContent>
                     <ResultViewer uploadId={uploadId} />
+                    <MyButtonContainer>
+                        <MyButton variant='outlined'  onClick={() => setStep(0)}>Back</MyButton>
+                    </MyButtonContainer>
                 </StepContent>
             </Step>
         </Stepper>
