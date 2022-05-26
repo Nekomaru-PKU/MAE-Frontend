@@ -66,7 +66,7 @@ function ResultSubplot(props: {
                 background: 'white',
                 paddingLeft: 8,
                 paddingRight: 8,
-            })}>{props.label}</div>
+            })}><a href={props.imageUrl}>{props.label}</a></div>
         </div>
     </Grow> 
 }

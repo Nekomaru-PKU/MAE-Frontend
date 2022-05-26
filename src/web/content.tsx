@@ -66,7 +66,10 @@ export function AppContent() {
                         maskBase64={maskBase64}
                         onChange={newMaskBase64 => setMaskBase64(newMaskBase64)} />
                     <MyButtonContainer>
-                        <MyButton variant='outlined'  onClick={() => setStep(0)}>Back</MyButton>
+                        <MyButton variant='outlined'  onClick={() => {
+                            setStep(0);
+                            setMaskBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==");
+                        }}>Back</MyButton>
                         <MyButton variant='contained' onClick={() => {
                             fetch("/api/run", {
                                 method: "POST",
@@ -89,7 +92,10 @@ export function AppContent() {
                 <StepContent>
                     <ResultViewer uploadId={uploadId} />
                     <MyButtonContainer>
-                        <MyButton variant='outlined'  onClick={() => setStep(0)}>Back</MyButton>
+                        <MyButton variant='outlined'  onClick={() => {
+                            setStep(0);
+                            setMaskBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==");
+                        }}>Back</MyButton>
                     </MyButtonContainer>
                 </StepContent>
             </Step>
